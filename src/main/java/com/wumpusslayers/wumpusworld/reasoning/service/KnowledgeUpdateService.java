@@ -1,11 +1,11 @@
 package com.wumpusslayers.wumpusworld.reasoning.service;
 
+import com.wumpusslayers.wumpusworld.common.exception.SimulationException;
 import com.wumpusslayers.wumpusworld.environment.domain.Percept;
 import com.wumpusslayers.wumpusworld.environment.domain.Position;
 import com.wumpusslayers.wumpusworld.reasoning.domain.KnowledgeBase;
 import org.springframework.stereotype.Service;
 
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -22,9 +22,15 @@ public class KnowledgeUpdateService {
      * 동일 인자로 반복 호출해도 칸 상태는 동일하게 유지된다(멱등).
      */
     public void observe(String sessionId, Position position, Percept percept) {
-        Objects.requireNonNull(sessionId, "sessionId must not be null");
-        Objects.requireNonNull(position, "position must not be null");
-        Objects.requireNonNull(percept, "percept must not be null");
+        if (sessionId == null) {
+            throw new SimulationException("sessionId must not be null");
+        }
+        if (position == null) {
+            throw new SimulationException("position must not be null");
+        }
+        if (percept == null) {
+            throw new SimulationException("percept must not be null");
+        }
         knowledgeBySession
                 .computeIfAbsent(sessionId, id -> new KnowledgeBase())
                 .recordCellObservation(position, percept);

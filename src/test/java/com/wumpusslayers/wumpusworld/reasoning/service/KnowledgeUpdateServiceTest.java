@@ -1,5 +1,6 @@
 package com.wumpusslayers.wumpusworld.reasoning.service;
 
+import com.wumpusslayers.wumpusworld.common.exception.SimulationException;
 import com.wumpusslayers.wumpusworld.environment.domain.Percept;
 import com.wumpusslayers.wumpusworld.environment.domain.Position;
 import org.junit.jupiter.api.DisplayName;
@@ -83,6 +84,14 @@ class KnowledgeUpdateServiceTest {
         var kb = service.getKnowledgeBaseOrNull("u1");
         assertNotNull(kb);
         assertTrue(kb.getCellBelief(new Position(1, 1)).lastPercept().isStench());
+    }
+
+    @Test
+    @DisplayName("observe 인자가 null이면 SimulationException이 발생한다.")
+    void observeRejectsNullArguments() {
+        assertThrows(SimulationException.class, () -> service.observe(null, new Position(1, 1), p(false, false)));
+        assertThrows(SimulationException.class, () -> service.observe("u1", null, p(false, false)));
+        assertThrows(SimulationException.class, () -> service.observe("u1", new Position(1, 1), null));
     }
 
     @Test
