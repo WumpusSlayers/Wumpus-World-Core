@@ -10,6 +10,7 @@ import java.util.Objects;
 /**
  * 4×4 월드에 대한 에이전트 지식(관측 스냅샷 + 안전/후보 집합).
  * 환경의 숨겨진 진실({@code World}/{@code Grid})은 읽지 않는다(#12 이후 observe 파이프라인).
+ * 사망 직전까지 쌓인 지식을 유지할지 여부는 호출 측 생명주기(#15)에서 결정하며, 유지 시에는 {@link #clear()}를 호출하지 않는다.
  */
 public final class KnowledgeBase {
 
@@ -50,7 +51,8 @@ public final class KnowledgeBase {
     }
 
     /**
-     * 세션 초기화: 동일 인스턴스를 재사용할 때 호출한다(#15 세션 정합과 연계 가능).
+     * 새 게임·새 세션 등 완전 리셋이 필요할 때만 지식을 처음 상태로 되돌린다.
+     * 사망 후에도 관측을 유지하는 정책에서는 호출하지 않는다(#15에서 시뮬레이션과 정합).
      */
     public void clear() {
         initializeState();
