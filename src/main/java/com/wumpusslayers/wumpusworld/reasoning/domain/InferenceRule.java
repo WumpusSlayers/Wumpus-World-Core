@@ -25,6 +25,12 @@ public enum InferenceRule {
     STENCH_MARK_WUMPUS_CANDIDATES(40),
 
     /**
+     * Stench 칸의 인접 중 wumpus 후보가 안전 밖에서 하나뿐이면, 같은 인접의 나머지 칸은 wumpus 후보에서 제외(#19).
+     * 다중 움퍼스 환경에서도 “그 stench를 설명할 수 있는 인접”만 좁히는 보수적 규칙이다.
+     */
+    STENCH_WUMPUS_SINGLETON_NARROWS_NEIGHBORS(45),
+
+    /**
      * {@link KnowledgeBase#isWumpusAlive()} 가 false일 때 전 격자에서 움퍼스 후보를 제거한다.
      * 비명(percept)만으로 생존 플래그가 바뀌지 않으므로, 다중 움퍼스에서는 시뮬 등이 플래그를 맞춘 뒤 이 규칙이 동작한다(#13).
      * 식별자명은 관례상 남아 있으며 동작은 {@code isWumpusAlive} 기준이다.

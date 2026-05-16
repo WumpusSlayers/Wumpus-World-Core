@@ -47,7 +47,7 @@ public class RuleEngineService {
         }
     }
 
-    /** 한 라운드: 방문·전멸 시 움퍼스 후보 제거·바람·악취 규칙, breeze/pit 단일 후보 축소, 후보 소진 시 안전 확정(#13·#19). */
+    /** 한 라운드: 방문·전멸 시 움퍼스 후보 제거·바람·악취 규칙, breeze/pit·stench/wumpus 단일 후보 축소, 후보 소진 시 안전 확정(#13·#19). */
     private boolean applyOneRound(KnowledgeBase kb) {
         Map<InferenceRule, Boolean> fired = log.isDebugEnabled() ? new EnumMap<>(InferenceRule.class) : null;
 
@@ -59,6 +59,7 @@ public class RuleEngineService {
         changed |= applyRule(kb, InferenceRule.BREEZE_MARK_PIT_CANDIDATES, fired, this::applyBreezeMarksAdjacentPitCandidates);
         changed |= applyRule(kb, InferenceRule.BREEZE_PIT_SINGLETON_NARROWS_NEIGHBORS, fired, this::applyBreezePitSingletonNarrowsNeighbors);
         changed |= applyRule(kb, InferenceRule.STENCH_MARK_WUMPUS_CANDIDATES, fired, this::applyStenchMarksAdjacentWumpusCandidates);
+        changed |= applyRule(kb, InferenceRule.STENCH_WUMPUS_SINGLETON_NARROWS_NEIGHBORS, fired, this::applyStenchWumpusSingletonNarrowsNeighbors);
         changed |= applyCandidateFreeCellsAsSafe(kb);
 
         if (fired != null && !fired.isEmpty()) {
@@ -253,6 +254,48 @@ public class RuleEngineService {
                     }
                     if (kb.isPossiblePit(m)) {
                         kb.setPossiblePit(m, false);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * Stench가 난 방문 칸마다, 인접 중 “안전이 아니면서 wumpus 후보”인 칸이 하나뿐이면
+     * 같은 인접의 나머지 칸은 wumpus 후보에서 제외한다(#19).
+     */
+    private boolean applyStenchWumpusSingletonNarrowsNeighbors(KnowledgeBase kb) {
+        if (!kb.isWumpusAlive()) {
+            return false;
+        }
+        boolean changed = false;
+        for (int x = 1; x <= KnowledgeBase.GRID_SIZE; x++) {
+            for (int y = 1; y <= KnowledgeBase.GRID_SIZE; y++) {
+                Position s = new Position(x, y);
+                if (!kb.isVisited(s) || !kb.getCellBelief(s).lastPercept().isStench()) {
+                    continue;
+                }
+                List<Position> wumpusCandidates = new ArrayList<>();
+                for (Position n : neighbors(s)) {
+                    if (!kb.isValid(n) || kb.isSafe(n)) {
+                        continue;
+                    }
+                    if (kb.isPossibleWumpus(n)) {
+                        wumpusCandidates.add(n);
+                    }
+                }
+                if (wumpusCandidates.size() != 1) {
+                    continue;
+                }
+                Position only = wumpusCandidates.get(0);
+                for (Position m : neighbors(s)) {
+                    if (!kb.isValid(m) || m.equals(only)) {
+                        continue;
+                    }
+                    if (kb.isPossibleWumpus(m)) {
+                        kb.setPossibleWumpus(m, false);
                         changed = true;
                     }
                 }

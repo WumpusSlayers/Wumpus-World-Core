@@ -98,7 +98,8 @@ class RuleEngineServiceTest {
         assertEquals(InferenceRule.BREEZE_MARK_PIT_CANDIDATES, order.get(2));
         assertEquals(InferenceRule.BREEZE_PIT_SINGLETON_NARROWS_NEIGHBORS, order.get(3));
         assertEquals(InferenceRule.STENCH_MARK_WUMPUS_CANDIDATES, order.get(4));
-        assertEquals(InferenceRule.SCREAM_WUMPUS_ELIMINATED, order.get(5));
+        assertEquals(InferenceRule.STENCH_WUMPUS_SINGLETON_NARROWS_NEIGHBORS, order.get(5));
+        assertEquals(InferenceRule.SCREAM_WUMPUS_ELIMINATED, order.get(6));
     }
 
     @Test
@@ -130,5 +131,22 @@ class RuleEngineServiceTest {
 
         assertTrue(kb.isPossiblePit(new Position(2, 2)));
         assertFalse(kb.isPossiblePit(new Position(3, 1)));
+    }
+
+    @Test
+    @DisplayName("stench 인접 wumpus 후보가 하나로 좁혀지면 나머지 인접 wumpus 후보가 제거된다(#19).")
+    void stenchSingletonNarrowsAdjacentWumpusCandidates() {
+        KnowledgeBase kb = new KnowledgeBase();
+        kb.recordCellObservation(new Position(1, 1), p(false, false));
+        engine.runInference(kb);
+
+        kb.recordCellObservation(new Position(2, 1), p(true, false));
+        engine.runInference(kb);
+
+        kb.recordCellObservation(new Position(3, 1), p(false, false));
+        engine.runInference(kb);
+
+        assertTrue(kb.isPossibleWumpus(new Position(2, 2)));
+        assertFalse(kb.isPossibleWumpus(new Position(3, 1)));
     }
 }
