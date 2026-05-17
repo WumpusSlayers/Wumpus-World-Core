@@ -56,8 +56,8 @@ class RuleEngineServiceTest {
     }
 
     @Test
-    @DisplayName("Scream 관측 후 전 격자에서 움퍼스 후보가 제거된다.")
-    void screamClearsAllWumpusCandidates() {
+    @DisplayName("비명만으로는 전 격자 움퍼스 후보가 사라지지 않는다. 전멸 시 setWumpusAlive(false) 후 규칙이 비운다.")
+    void screamAloneDoesNotClearWumpusCandidatesUntilGloballyDead() {
         KnowledgeBase kb = new KnowledgeBase();
         kb.recordCellObservation(new Position(1, 1), p(true, false));
         engine.runInference(kb);
@@ -69,12 +69,71 @@ class RuleEngineServiceTest {
 
         engine.runInference(kb);
 
+        assertTrue(kb.isWumpusAlive());
+        assertTrue(kb.isHeardScream());
+        assertTrue(kb.isPossibleWumpus(new Position(1, 2)) || kb.isPossibleWumpus(new Position(2, 1)));
+
+        kb.setWumpusAlive(false);
+        engine.runInference(kb);
+
         for (int x = 1; x <= KnowledgeBase.GRID_SIZE; x++) {
             for (int y = 1; y <= KnowledgeBase.GRID_SIZE; y++) {
                 assertFalse(kb.isPossibleWumpus(new Position(x, y)), "cell " + x + "," + y);
             }
         }
-        assertFalse(kb.isWumpusAlive());
+    }
+
+    @Test
+    @DisplayName("breeze 2칸 이상이면 pit 후보 교집합 밖이 제거된다(#25).")
+    void breezeIntersectionNarrowsPitCandidates() {
+        KnowledgeBase kb = new KnowledgeBase();
+        kb.recordCellObservation(new Position(1, 1), p(false, false));
+        engine.runInference(kb);
+
+        kb.recordCellObservation(new Position(2, 1), p(false, true));
+        engine.runInference(kb);
+
+        kb.recordCellObservation(new Position(1, 2), p(false, true));
+        engine.runInference(kb);
+
+        assertTrue(kb.isPossiblePit(new Position(2, 2)));
+        assertFalse(kb.isPossiblePit(new Position(3, 1)));
+        assertFalse(kb.isPossiblePit(new Position(1, 3)));
+    }
+
+    @Test
+    @DisplayName("stench 2칸 이상이면 wumpus 후보 교집합 밖이 제거된다(#25).")
+    void stenchIntersectionNarrowsWumpusCandidates() {
+        KnowledgeBase kb = new KnowledgeBase();
+        kb.recordCellObservation(new Position(1, 1), p(false, false));
+        engine.runInference(kb);
+
+        kb.recordCellObservation(new Position(2, 1), p(true, false));
+        engine.runInference(kb);
+
+        kb.recordCellObservation(new Position(1, 2), p(true, false));
+        engine.runInference(kb);
+
+        assertTrue(kb.isPossibleWumpus(new Position(2, 2)));
+        assertFalse(kb.isPossibleWumpus(new Position(3, 1)));
+        assertFalse(kb.isPossibleWumpus(new Position(1, 3)));
+    }
+
+    @Test
+    @DisplayName("breeze 교집합이 비면 pit 후보를 대량 제거하지 않는다(#25).")
+    void emptyBreezeIntersectionIsNoOp() {
+        KnowledgeBase kb = new KnowledgeBase();
+        kb.recordCellObservation(new Position(1, 1), p(false, false));
+        engine.runInference(kb);
+
+        kb.recordCellObservation(new Position(2, 1), p(false, true));
+        engine.runInference(kb);
+
+        kb.recordCellObservation(new Position(4, 3), p(false, true));
+        engine.runInference(kb);
+
+        assertTrue(kb.isPossiblePit(new Position(2, 2)));
+        assertTrue(kb.isPossiblePit(new Position(4, 4)));
     }
 
     @Test
@@ -90,7 +149,9 @@ class RuleEngineServiceTest {
         assertEquals(InferenceRule.NO_BREEZE_CLEAR_ADJACENT_PIT_CANDIDATES, order.get(0));
         assertEquals(InferenceRule.NO_STENCH_CLEAR_ADJACENT_WUMPUS_CANDIDATES, order.get(1));
         assertEquals(InferenceRule.BREEZE_MARK_PIT_CANDIDATES, order.get(2));
-        assertEquals(InferenceRule.STENCH_MARK_WUMPUS_CANDIDATES, order.get(3));
-        assertEquals(InferenceRule.SCREAM_WUMPUS_ELIMINATED, order.get(4));
+        assertEquals(InferenceRule.BREEZE_PIT_INTERSECTION_NARROWS_CANDIDATES, order.get(3));
+        assertEquals(InferenceRule.STENCH_MARK_WUMPUS_CANDIDATES, order.get(4));
+        assertEquals(InferenceRule.STENCH_WUMPUS_INTERSECTION_NARROWS_CANDIDATES, order.get(5));
+        assertEquals(InferenceRule.SCREAM_WUMPUS_ELIMINATED, order.get(6));
     }
 }

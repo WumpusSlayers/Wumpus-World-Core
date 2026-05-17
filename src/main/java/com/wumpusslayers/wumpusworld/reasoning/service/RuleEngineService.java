@@ -11,11 +11,13 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * {@link KnowledgeBase}에 저장된 관측만으로 Pit·Wumpus 후보를 줄이는 전진 추론(#13).
+ * {@link KnowledgeBase}에 저장된 관측만으로 Pit·Wumpus 후보를 줄이는 전진 추론(#13·#25).
  * 환경의 숨겨진 진실({@code World}/{@code Grid})은 읽지 않는다.
  */
 @Service
@@ -47,7 +49,7 @@ public class RuleEngineService {
         }
     }
 
-    /** 한 라운드: 방문·Scream·바람·악취 규칙과 후보 소진 시 안전 확정을 순서대로 적용한다. */
+    /** 한 라운드: 방문·전멸·바람·악취·교집합·안전 확정을 순서대로 적용한다(#13·#25). */
     private boolean applyOneRound(KnowledgeBase kb) {
         Map<InferenceRule, Boolean> fired = log.isDebugEnabled() ? new EnumMap<>(InferenceRule.class) : null;
 
@@ -57,7 +59,9 @@ public class RuleEngineService {
         changed |= applyRule(kb, InferenceRule.NO_BREEZE_CLEAR_ADJACENT_PIT_CANDIDATES, fired, this::applyNoBreezeClearsAdjacentPit);
         changed |= applyRule(kb, InferenceRule.NO_STENCH_CLEAR_ADJACENT_WUMPUS_CANDIDATES, fired, this::applyNoStenchClearsAdjacentWumpus);
         changed |= applyRule(kb, InferenceRule.BREEZE_MARK_PIT_CANDIDATES, fired, this::applyBreezeMarksAdjacentPitCandidates);
+        changed |= applyRule(kb, InferenceRule.BREEZE_PIT_INTERSECTION_NARROWS_CANDIDATES, fired, this::applyBreezePitIntersectionNarrowsCandidates);
         changed |= applyRule(kb, InferenceRule.STENCH_MARK_WUMPUS_CANDIDATES, fired, this::applyStenchMarksAdjacentWumpusCandidates);
+        changed |= applyRule(kb, InferenceRule.STENCH_WUMPUS_INTERSECTION_NARROWS_CANDIDATES, fired, this::applyStenchWumpusIntersectionNarrowsCandidates);
         changed |= applyCandidateFreeCellsAsSafe(kb);
 
         if (fired != null && !fired.isEmpty()) {
@@ -104,9 +108,9 @@ public class RuleEngineService {
         return changed;
     }
 
-    /** Scream 또는 움퍼스 사망 확정 시, 전 격자에서 움퍼스 후보를 제거한다(움퍼스 1마리 가정). */
+    /** KB에서 살아 있는 움퍼스가 없다고 판정되면 전 격자에서 움퍼스 후보를 제거한다(#25). */
     private boolean applyScreamEliminatesWumpusCandidates(KnowledgeBase kb) {
-        if (kb.isWumpusAlive() && !kb.isHeardScream()) {
+        if (kb.isWumpusAlive()) {
             return false;
         }
         boolean changed = false;
@@ -213,6 +217,128 @@ public class RuleEngineService {
                     }
                 }
             }
+        }
+        return changed;
+    }
+
+    /**
+     * breeze 방문 칸이 2곳 이상일 때, 각 칸의 pit 설명 가능 인접(possiblePit·비안전) 집합의 교집합 밖 후보를 제거(#25).
+     */
+    private boolean applyBreezePitIntersectionNarrowsCandidates(KnowledgeBase kb) {
+        List<Position> breezeCells = visitedCellsWithBreeze(kb);
+        if (breezeCells.size() < 2) {
+            return false;
+        }
+        return narrowCandidatesOutsideIntersection(kb, breezeCells, true, "B");
+    }
+
+    /**
+     * stench 방문 칸이 2곳 이상일 때, wumpus 설명 가능 인접 집합의 교집합 밖 후보를 제거(#25).
+     */
+    private boolean applyStenchWumpusIntersectionNarrowsCandidates(KnowledgeBase kb) {
+        if (!kb.isWumpusAlive()) {
+            return false;
+        }
+        List<Position> stenchCells = visitedCellsWithStench(kb);
+        if (stenchCells.size() < 2) {
+            return false;
+        }
+        return narrowCandidatesOutsideIntersection(kb, stenchCells, false, "S");
+    }
+
+    private static List<Position> visitedCellsWithBreeze(KnowledgeBase kb) {
+        List<Position> out = new ArrayList<>();
+        for (int x = 1; x <= KnowledgeBase.GRID_SIZE; x++) {
+            for (int y = 1; y <= KnowledgeBase.GRID_SIZE; y++) {
+                Position p = new Position(x, y);
+                if (kb.isVisited(p) && kb.getCellBelief(p).lastPercept().isBreeze()) {
+                    out.add(p);
+                }
+            }
+        }
+        return out;
+    }
+
+    private static List<Position> visitedCellsWithStench(KnowledgeBase kb) {
+        List<Position> out = new ArrayList<>();
+        for (int x = 1; x <= KnowledgeBase.GRID_SIZE; x++) {
+            for (int y = 1; y <= KnowledgeBase.GRID_SIZE; y++) {
+                Position p = new Position(x, y);
+                if (kb.isVisited(p) && kb.getCellBelief(p).lastPercept().isStench()) {
+                    out.add(p);
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * @param pit true면 pit 후보, false면 wumpus 후보
+     * @param observationLabel 디버그용 관측 집합 이름({@code B} breeze, {@code S} stench)
+     */
+    private boolean narrowCandidatesOutsideIntersection(
+            KnowledgeBase kb,
+            List<Position> observationCells,
+            boolean pit,
+            String observationLabel
+    ) {
+        int observationCount = observationCells.size();
+        Set<Position> intersection = null;
+        Set<Position> union = new HashSet<>();
+        for (Position center : observationCells) {
+            Set<Position> explanation = new HashSet<>();
+            for (Position n : neighbors(center)) {
+                if (!kb.isValid(n) || kb.isSafe(n)) {
+                    continue;
+                }
+                boolean candidate = pit ? kb.isPossiblePit(n) : kb.isPossibleWumpus(n);
+                if (candidate) {
+                    explanation.add(n);
+                }
+            }
+            union.addAll(explanation);
+            if (intersection == null) {
+                intersection = new HashSet<>(explanation);
+            } else {
+                intersection.retainAll(explanation);
+            }
+        }
+        if (intersection == null || intersection.isEmpty()) {
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "intersection {}: |{}|={}, |C|=0, removed=[] (no-op)",
+                        pit ? "pit" : "wumpus",
+                        observationLabel,
+                        observationCount
+                );
+            }
+            return false;
+        }
+        List<Position> removed = new ArrayList<>();
+        boolean changed = false;
+        for (Position p : union) {
+            if (intersection.contains(p)) {
+                continue;
+            }
+            if (pit && kb.isPossiblePit(p)) {
+                kb.setPossiblePit(p, false);
+                removed.add(p);
+                changed = true;
+            } else if (!pit && kb.isPossibleWumpus(p)) {
+                kb.setPossibleWumpus(p, false);
+                removed.add(p);
+                changed = true;
+            }
+        }
+        if (log.isDebugEnabled()) {
+            log.debug(
+                    "intersection {}: |{}|={}, |C|={}, removed={}",
+                    pit ? "pit" : "wumpus",
+                    observationLabel,
+                    observationCount,
+                    intersection.size(),
+                    removed
+            );
         }
         return changed;
     }

@@ -59,7 +59,7 @@ public final class KnowledgeBase {
         initializeState();
     }
 
-    /** 움퍼스가 살아 있는지 여부(Scream 관측 시 false로 바뀔 수 있다). */
+    /** 움퍼스가 살아 있는지 여부(시뮬이 {@link #setWumpusAlive(boolean)} 으로 맞춘다. 비명만으로는 바뀌지 않음). */
     public boolean isWumpusAlive() {
         return wumpusAlive;
     }
@@ -120,7 +120,6 @@ public final class KnowledgeBase {
         cells[xi][yi] = cells[xi][yi].withObservation(percept);
         if (percept.isScream()) {
             this.heardScream = true;
-            this.wumpusAlive = false;
         }
     }
 

@@ -42,6 +42,18 @@ public class World {
             this.arrowCount--;
         }
     }
+
+    /** 격자에 움퍼스가 한 마리라도 남아 있는지(시뮬 → 추론 {@code wumpusAlive} 동기화용, #25). */
+    public boolean hasAnyWumpusOnGrid() {
+        for (int x = 1; x <= Grid.getSIZE(); x++) {
+            for (int y = 1; y <= Grid.getSIZE(); y++) {
+                if (grid.getCell(new Position(x, y)).isHasWumpus()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
     /*
      * 현재 월드의 상태를 텍스트로 시각화
      * [W]: Wumpus, [P]: Pit, [G]: Gold, [A]: Agent

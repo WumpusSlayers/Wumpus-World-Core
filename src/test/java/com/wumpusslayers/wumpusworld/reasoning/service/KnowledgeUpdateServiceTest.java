@@ -3,6 +3,7 @@ package com.wumpusslayers.wumpusworld.reasoning.service;
 import com.wumpusslayers.wumpusworld.common.exception.SimulationException;
 import com.wumpusslayers.wumpusworld.environment.domain.Percept;
 import com.wumpusslayers.wumpusworld.environment.domain.Position;
+import com.wumpusslayers.wumpusworld.reasoning.domain.KnowledgeBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -95,12 +96,13 @@ class KnowledgeUpdateServiceTest {
     }
 
     @Test
-    @DisplayName("Scream이 포함된 percept는 KB 전역 플래그에 반영된다.")
-    void screamUpdatesGlobalFlags() {
+    @DisplayName("Scream이 포함된 percept는 heardScream만 반영하고 wumpusAlive는 유지한다.")
+    void screamUpdatesHeardScreamOnly() {
         service.observe("u1", new Position(1, 2), Percept.builder()
                 .stench(false).breeze(false).glitter(false).bump(false).scream(true)
                 .build());
-        assertFalse(service.getKnowledgeBaseOrNull("u1").isWumpusAlive());
-        assertTrue(service.getKnowledgeBaseOrNull("u1").isHeardScream());
+        KnowledgeBase kb = service.getKnowledgeBaseOrNull("u1");
+        assertTrue(kb.isWumpusAlive());
+        assertTrue(kb.isHeardScream());
     }
 }
