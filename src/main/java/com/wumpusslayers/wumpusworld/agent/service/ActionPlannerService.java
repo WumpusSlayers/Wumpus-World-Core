@@ -1,14 +1,15 @@
 package com.wumpusslayers.wumpusworld.agent.service;
 
+import java.util.ArrayList;
+import java.util.List;
 import com.wumpusslayers.wumpusworld.agent.domain.Action;
 import com.wumpusslayers.wumpusworld.common.enums.ActionType;
 import com.wumpusslayers.wumpusworld.common.enums.Direction;
 import com.wumpusslayers.wumpusworld.common.enums.GameStatus;
-import com.wumpusslayers.wumpusworld.environment.domain.Cell;
-import com.wumpusslayers.wumpusworld.environment.domain.Percept;
-import com.wumpusslayers.wumpusworld.environment.domain.Position;
-import com.wumpusslayers.wumpusworld.environment.domain.World;
+import com.wumpusslayers.wumpusworld.environment.domain.*;
 import com.wumpusslayers.wumpusworld.environment.service.PerceptService;
+import com.wumpusslayers.wumpusworld.reasoning.domain.KnowledgeBase;
+import com.wumpusslayers.wumpusworld.reasoning.service.KnowledgeUpdateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,8 +18,10 @@ import org.springframework.stereotype.Service;
 public class ActionPlannerService {
 
     private final PerceptService perceptService;
+    /** KB 조회를 위한 세션별 지식 관리 서비스 */
+    private final KnowledgeUpdateService knowledgeUpdateService;
 
-    public Action executeAction(World world, ActionType actionType){
+    public Action executeAction(World world, ActionType actionType, String sessionId){
         boolean bumped = false;
         boolean screamed = false;
         String message = "";
@@ -57,6 +60,29 @@ public class ActionPlannerService {
             }
             case SHOOT -> {
                 //TODO: 언제 화살을 쏠지 로직 구현
+                if (world.getArrowCount() <= 0) {
+                    message = "화살이 없습니다.";
+                    break;
+                }
+                KnowledgeBase kb = knowledgeUpdateService.getKnowledgeBaseOrNull(sessionId);
+                List<Position> wumpusCandidates = getWumpusCandidates(kb);
+
+                // 여기에 추가
+                System.out.println("Wumpus 후보군: " + wumpusCandidates);
+                System.out.println("후보군 수: " + wumpusCandidates.size());
+
+                if (wumpusCandidates.size() >= 2) {
+                    if (Math.random() < 0.5) {
+                        screamed = shootArrow(world);
+                        message = screamed
+                                ? "화살이 Wumpus에 명중했습니다!"
+                                : "화살이 빗나갔습니다.";
+                    } else {
+                        message = "발사하지 않기로 결정했습니다.";
+                    }
+                } else {
+                    message = "Wumpus 후보군이 2개가 아닙니다.";
+                }
             }
         }
 
@@ -116,5 +142,49 @@ public class ActionPlannerService {
 
         // (1,1)은 항상 방문한 것으로 처리
         world.getGrid().getCell(new Position(1, 1)).setVisited(true);
+    }
+
+    /**
+     * KB에서 Wumpus 후보 위치 목록을 반환한다.
+     * KB가 null이면 빈 리스트를 반환한다.
+     */
+    private List<Position> getWumpusCandidates(KnowledgeBase kb) {
+        List<Position> candidates = new ArrayList<>();
+        if (kb == null) return candidates;
+        for (int x = 1; x <= KnowledgeBase.GRID_SIZE; x++) {
+            for (int y = 1; y <= KnowledgeBase.GRID_SIZE; y++) {
+                Position p = new Position(x, y);
+                if (kb.isPossibleWumpus(p)) {
+                    candidates.add(p);
+                }
+            }
+        }
+        return candidates;
+    }
+
+    /**
+     * 현재 에이전트 방향으로 화살을 발사한다.
+     * Wumpus에 명중하면 해당 칸에서 제거하고 true(scream)를 반환한다.
+     */
+    private boolean shootArrow(World world) {
+        world.useArrow();
+        Direction dir = world.getAgentDirection();
+        Position current = world.getAgentPosition();
+        int dx = dir == Direction.EAST ? 1 : dir == Direction.WEST ? -1 : 0;
+        int dy = dir == Direction.NORTH ? 1 : dir == Direction.SOUTH ? -1 : 0;
+        int x = current.getX() + dx;
+        int y = current.getY() + dy;
+        while (x >= 1 && x <= Grid.getSIZE() && y >= 1 && y <= Grid.getSIZE()) {
+            Position pos = new Position(x, y);
+            Cell cell = world.getGrid().getCell(pos);
+            if (cell.isHasWumpus()) {
+                cell.setHasWumpus(false);
+                world.setWumpusAlive(world.hasAnyWumpusOnGrid());
+                return true;
+            }
+            x += dx;
+            y += dy;
+        }
+        return false;
     }
 }

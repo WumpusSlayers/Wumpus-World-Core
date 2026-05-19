@@ -33,8 +33,8 @@ class GameEngineKnowledgePersistenceAfterDeathTest {
     @BeforeEach
     void setUp() {
         PerceptService perceptService = new PerceptService();
-        ActionPlannerService actionPlannerService = new ActionPlannerService(perceptService);
         KnowledgeUpdateService knowledgeUpdateService = new KnowledgeUpdateService();
+        ActionPlannerService actionPlannerService = new ActionPlannerService(perceptService, knowledgeUpdateService);
         reasoningService = new ReasoningService(knowledgeUpdateService, new RuleEngineService());
         gameEngine = new GameEngine(worldGeneratorService, actionPlannerService, perceptService, reasoningService);
     }

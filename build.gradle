@@ -8,12 +8,13 @@ group = 'com.wumpusslayers'
 version = '0.0.1-SNAPSHOT'
 description = 'wumpusworld'
 
+/*
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }
 }
-
+*/
 repositories {
     mavenCentral()
 }

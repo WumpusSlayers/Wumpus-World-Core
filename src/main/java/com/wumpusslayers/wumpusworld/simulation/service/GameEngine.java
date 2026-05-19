@@ -62,7 +62,7 @@ public class GameEngine {
             throw new SimulationException("진행 중인 게임이 없습니다.");
         }
 
-        Action result = actionPlannerService.executeAction(world, actionType);
+        Action result = actionPlannerService.executeAction(world, actionType, userId);
         reasoningService.syncWumpusAlive(userId, world.hasAnyWumpusOnGrid());
         reasoningService.updateFromObservation(userId, world.getAgentPosition(), result.getPercept());
 
