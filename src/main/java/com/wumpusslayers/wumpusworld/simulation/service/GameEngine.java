@@ -62,9 +62,12 @@ public class GameEngine {
             throw new SimulationException("진행 중인 게임이 없습니다.");
         }
 
-        Action result = actionPlannerService.executeAction(world, actionType, userId);
+        Action result = actionPlannerService.executeAction(world, actionType);
+        if (result.isDiedInPit() && result.getActionPosition() != null) {
+            reasoningService.markAgentDiedInPit(userId, result.getActionPosition());
+        }
         reasoningService.syncWumpusAlive(userId, world.hasAnyWumpusOnGrid());
-        reasoningService.updateFromObservation(userId, world.getAgentPosition(), result.getPercept());
+        reasoningService.updateFromObservation(userId, result.getActionPosition(), result.getPercept());
 
         System.out.println("액션 실행: " + actionType + " | 결과: " + result.getMessage());
         System.out.println(world.toString());
