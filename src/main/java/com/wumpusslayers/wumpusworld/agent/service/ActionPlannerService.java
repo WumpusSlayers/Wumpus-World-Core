@@ -91,14 +91,14 @@ public class ActionPlannerService {
                     if (shootDir != null) world.setAgentDirection(shootDir);
                     System.out.println("확정 Wumpus 타겟: " + target + " | 발사 방향: " + shootDir);
 
-// Wumpus 후보가 정확히 2개인 경우 → 랜덤으로 하나 선택 후 무조건 발사
+                // Wumpus 후보가 정확히 2개인 경우 → 랜덤으로 하나 선택 후 무조건 발사
                 } else if (wumpusCandidates.size() == 2) {
                     Position target = wumpusCandidates.get((int)(Math.random() * 2));
                     Direction shootDir = getDirectionToTarget(world.getAgentPosition(), target);
                     if (shootDir != null) world.setAgentDirection(shootDir);
                     System.out.println("후보 타겟: " + target + " | 발사 방향: " + shootDir);
 
-// 확정도 없고 후보도 2개가 아닌 경우 → 발사하지 않음
+                // 확정도 없고 후보도 2개가 아닌 경우 → 발사하지 않음
                 } else {
                     message = "Wumpus 후보군이 2개가 아닙니다.";
                     break;
