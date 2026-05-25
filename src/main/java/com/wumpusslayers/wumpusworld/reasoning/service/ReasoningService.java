@@ -93,8 +93,8 @@ public class ReasoningService {
             System.out.println("[DEBUG] 처리 중: " + pos + " | possibleWumpus: " + kb.isPossibleWumpus(pos));
             /** 화살 통과 칸 영구 표시 — stench 규칙에서 재등록 방지 */
             kb.setArrowCleared(pos);
-            /** 화살 경로상 Wumpus 후보 제거 */
-            if (kb.isPossibleWumpus(pos)) {
+            /** 화살 경로상 Wumpus 후보 제거 (확정 칸은 제외) */
+            if (kb.isPossibleWumpus(pos) && !kb.isDefiniteWumpus(pos)) {
                 kb.setPossibleWumpus(pos, false);
             }
         }
