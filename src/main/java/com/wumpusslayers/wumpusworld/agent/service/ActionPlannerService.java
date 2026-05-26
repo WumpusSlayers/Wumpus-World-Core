@@ -84,22 +84,34 @@ public class ActionPlannerService {
                 System.out.println("후보군 수: " + wumpusCandidates.size());
                 System.out.println("Wumpus 확정 목록: " + definiteWumpusList);
 
-                // 확정 Wumpus가 1개 이상인 경우 → 랜덤으로 하나 선택 후 무조건 발사
-                if (!definiteWumpusList.isEmpty()) {
-                    Position target = definiteWumpusList.get((int)(Math.random() * definiteWumpusList.size()));
+                // 확정 Wumpus 1개 → 무조건 그 확정 칸으로 발사
+                if (definiteWumpusList.size() == 1) {
+                    Position target = definiteWumpusList.get(0);
                     Direction shootDir = getDirectionToTarget(world.getAgentPosition(), target);
                     if (shootDir != null) world.setAgentDirection(shootDir);
                     System.out.println("확정 Wumpus 타겟: " + target + " | 발사 방향: " + shootDir);
-
-                // Wumpus 후보가 정확히 2개인 경우 → 랜덤으로 하나 선택 후 무조건 발사
-                } else if (wumpusCandidates.size() == 2) {
+                }
+                // 확정 Wumpus 2개 → 랜덤으로 하나 선택 후 발사
+                else if (definiteWumpusList.size() == 2) {
+                    Position target = definiteWumpusList.get((int)(Math.random() * 2));
+                    Direction shootDir = getDirectionToTarget(world.getAgentPosition(), target);
+                    if (shootDir != null) world.setAgentDirection(shootDir);
+                    System.out.println("확정 Wumpus 타겟: " + target + " | 발사 방향: " + shootDir);
+                }
+                // 후보 2개 → 랜덤으로 하나 선택 후 발사
+                else if (wumpusCandidates.size() == 2) {
                     Position target = wumpusCandidates.get((int)(Math.random() * 2));
                     Direction shootDir = getDirectionToTarget(world.getAgentPosition(), target);
                     if (shootDir != null) world.setAgentDirection(shootDir);
                     System.out.println("후보 타겟: " + target + " | 발사 방향: " + shootDir);
-
-                // 확정도 없고 후보도 2개가 아닌 경우 → 발사하지 않음
-                } else {
+                }
+                // 확정은 있지만 1, 2개가 아닌 경우
+                else if (!definiteWumpusList.isEmpty()) {
+                    message = "확정 Wumpus 발사 조건이 충족되지 않습니다.";
+                    break;
+                }
+                // 확정 없고 후보도 2개 아닌 경우
+                else {
                     message = "Wumpus 후보군이 2개가 아닙니다.";
                     break;
                 }
@@ -241,13 +253,19 @@ public class ActionPlannerService {
         while (x >= 1 && x <= Grid.getSIZE() && y >= 1 && y <= Grid.getSIZE()) {
             Position pos = new Position(x, y);
             Cell cell = world.getGrid().getCell(pos);
+            // 후보 칸 명중: Wumpus 제거 + 후보 제거
+            if (cell.isHasWumpus() && (kb == null || !kb.isDefiniteWumpus(pos))) {
+                cell.setHasWumpus(false);
+                world.setWumpusAlive(world.hasAnyWumpusOnGrid());
+                if (kb != null) kb.setPossibleWumpus(pos, false);
+                return true;
+            }
+
+            // 확정 칸 명중: Wumpus 제거만 (setPossibleWumpus 호출 안 함)
             if (cell.isHasWumpus()) {
                 cell.setHasWumpus(false);
                 world.setWumpusAlive(world.hasAnyWumpusOnGrid());
-                /** 명중 칸이 확정 Wumpus가 아닌 경우에만 후보 제거 (확정 칸은 KB 불변 유지) */
-                if (kb != null && !kb.isDefiniteWumpus(pos)) {
-                    kb.setPossibleWumpus(pos, false);
-                }
+                if (kb != null) kb.clearDefiniteWumpusAndMarkSafe(pos);
                 return true;
             }
             x += dx;
@@ -274,10 +292,17 @@ public class ActionPlannerService {
      * 같은 행/열이 아니면 null 반환 (직선 방향만 지원, 대각선에 위치한 경우는 X)
      */
     private Direction getDirectionToTarget(Position current, Position target) {
-        if (target.getX() > current.getX()) return Direction.EAST;
-        if (target.getX() < current.getX()) return Direction.WEST;
-        if (target.getY() > current.getY()) return Direction.NORTH;
-        if (target.getY() < current.getY()) return Direction.SOUTH;
+        // 같은 열(x가 같을 때)만 NORTH/SOUTH 반환
+        if (target.getX() == current.getX()) {
+            if (target.getY() > current.getY()) return Direction.NORTH;
+            if (target.getY() < current.getY()) return Direction.SOUTH;
+        }
+        // 같은 행(y가 같을 때)만 EAST/WEST 반환
+        if (target.getY() == current.getY()) {
+            if (target.getX() > current.getX()) return Direction.EAST;
+            if (target.getX() < current.getX()) return Direction.WEST;
+        }
+        // 직선 방향 아니면 null 반환
         return null;
     }
 }
