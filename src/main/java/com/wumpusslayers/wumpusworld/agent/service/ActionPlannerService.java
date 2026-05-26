@@ -84,37 +84,35 @@ public class ActionPlannerService {
                 System.out.println("후보군 수: " + wumpusCandidates.size());
                 System.out.println("Wumpus 확정 목록: " + definiteWumpusList);
 
-                // 확정 Wumpus 1개 → 무조건 그 확정 칸으로 발사
-                if (definiteWumpusList.size() == 1) {
-                    Position target = definiteWumpusList.get(0);
-                    Direction shootDir = getDirectionToTarget(world.getAgentPosition(), target);
-                    if (shootDir != null) world.setAgentDirection(shootDir);
+                Position target = null;
+                Direction shootDir = null;
+
+                // 확정 Wumpus >= 1개 → 랜덤으로 하나 선택 후 발사
+                if (!definiteWumpusList.isEmpty()) {
+                    target = definiteWumpusList.get((int)(Math.random() * definiteWumpusList.size()));
+                    shootDir = getDirectionToTarget(world.getAgentPosition(), target);
                     System.out.println("확정 Wumpus 타겟: " + target + " | 발사 방향: " + shootDir);
                 }
-                // 확정 Wumpus 2개 → 랜덤으로 하나 선택 후 발사
-                else if (definiteWumpusList.size() == 2) {
-                    Position target = definiteWumpusList.get((int)(Math.random() * 2));
-                    Direction shootDir = getDirectionToTarget(world.getAgentPosition(), target);
-                    if (shootDir != null) world.setAgentDirection(shootDir);
-                    System.out.println("확정 Wumpus 타겟: " + target + " | 발사 방향: " + shootDir);
+                // 후보 1개 → 무조건 발사
+                else if (wumpusCandidates.size() == 1) {
+                    target = wumpusCandidates.get(0);
+                    shootDir = getDirectionToTarget(world.getAgentPosition(), target);
+                    System.out.println("후보 타겟 (1개): " + target + " | 발사 방향: " + shootDir);
                 }
                 // 후보 2개 → 랜덤으로 하나 선택 후 발사
                 else if (wumpusCandidates.size() == 2) {
-                    Position target = wumpusCandidates.get((int)(Math.random() * 2));
-                    Direction shootDir = getDirectionToTarget(world.getAgentPosition(), target);
-                    if (shootDir != null) world.setAgentDirection(shootDir);
-                    System.out.println("후보 타겟: " + target + " | 발사 방향: " + shootDir);
+                    target = wumpusCandidates.get((int)(Math.random() * 2));
+                    shootDir = getDirectionToTarget(world.getAgentPosition(), target);
+                    System.out.println("후보 타겟 (2개): " + target + " | 발사 방향: " + shootDir);
                 }
-                // 확정은 있지만 1, 2개가 아닌 경우
-                else if (!definiteWumpusList.isEmpty()) {
-                    message = "확정 Wumpus 발사 조건이 충족되지 않습니다.";
-                    break;
-                }
-                // 확정 없고 후보도 2개 아닌 경우
+                // 발사 조건 미충족
                 else {
-                    message = "Wumpus 후보군이 2개가 아닙니다.";
+                    message = "발사 조건이 충족되지 않습니다.";
                     break;
                 }
+
+                // shootDir이 null이 아니면 해당 방향으로 회전, null이면 현재 방향 유지
+                if (shootDir != null) world.setAgentDirection(shootDir);
 
                 // 공통: 화살 발사 및 결과 처리
                 screamed = shootArrow(world, sessionId, kb);
